@@ -36,13 +36,10 @@
 	#endif
 
 
-
-
 /*
-TEM QUE MUDAR A ROTINA DE INTERRUPÇÃO e adicionar isso ai:
-           tmp = (estado_leds << 1) | ((estado_leds >> 7)&1);
-						estado_leds = tmp;
-Pra ficar assim:
+
+Eu acho que a maior transformação vai ser na rotina de interrupção, devemos atender a seguinte rotina:
+
 Se estado_botao for 1, executar as seguintes ações com base no valor de estado_leds:
 	0b00000001: Apagar todos os canais do LED.
 	0b00000010: Acender o canal vermelho.
@@ -54,10 +51,11 @@ Se estado_botao for 1, executar as seguintes ações com base no valor de estado
 	0b10000000: Acender todos os canais (branco).
 	Atualize o membro cor_led;
 	Após executar a ação, resetar estado_botao para 0.
-*/
 
+Temos que adicionar o seguinte bloco de código
 
-//e vei tenho que entender pra que isso serve
+	  tmp = (estado_leds << 1) | ((estado_leds >> 7)&1);
+						estado_leds = tmp;
 
 		  typedef struct {
 		  char identificador[50]; // Nome do proprietário
@@ -67,15 +65,15 @@ Se estado_botao for 1, executar as seguintes ações com base no valor de estado
 		  uint8_t estado_leds;      // Controle dos estados do LED RGB (0b00000001 inicial)
 		} Perifericos_t;
 
-
-//alguém tem que resolver isso ai:
-//"A estrutura deve ser otimizada para ocupar o menor espaço de memória possível, minimizando padding."
-//"Crie uma variável LEDInterativo do tipo Perifericos_t (Perifericos_t LEDInterativo)."
-
-
+Devemos nos atentar a isso
+"A estrutura deve ser otimizada para ocupar o menor espaço de memória possível, minimizando padding."
+"Crie uma variável LEDInterativo do tipo Perifericos_t (Perifericos_t LEDInterativo)."
+*/
 
 
-//Rotina de interrupção
+
+
+//Rotina de interrupção do código anterior, tem que mudar
 void EXTI15_10_IRQHandler(void) {
 	static uint8_t status = 0; // Corresponde ao estado do LED: 0 -> apagado; 1 -> aceso
 	// Testa flag de EXTI13
@@ -171,9 +169,11 @@ int main(void)	{
 
 
 
-//De que forma tudo vai começar a rodar
+//Define de que forma tudo vai começar a rodar, acredito que nesse código será desligando todos os leds
 
-	// Inicializa PD15 apagado                                                                         ACHO QUE TEM Q MUDAR ISSO AQUI
+	// Inicializa PD15 apagado
+	GPIOD->ODR &= ~GPIO_ODR_OD12_Msk;
+	GPIOD->ODR &= ~GPIO_ODR_OD14_Msk;
 	GPIOD->ODR &= ~GPIO_ODR_OD15_Msk;
 	uint32_t d;
 	for(;;) {
