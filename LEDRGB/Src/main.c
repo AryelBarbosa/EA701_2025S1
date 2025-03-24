@@ -73,19 +73,15 @@ Devemos nos atentar a isso
 
 
 
-//Rotina de interrupção do código anterior, tem que mudar
+//Rotina de interrupção
 void EXTI15_10_IRQHandler(void) {
-	static uint8_t status = 0; // Corresponde ao estado do LED: 0 -> apagado; 1 -> aceso
 	// Testa flag de EXTI13
 	if(EXTI->PR1 & EXTI_PR1_PR13_Msk){
 		EXTI->PR1 |= EXTI_PR1_PR13_Msk; // Limpa a flag, importante para garantir que a interrupção não é atendida várias vezes
-		if(status) { // Se o LED está aceso
-			GPIOD->ODR &= ~GPIO_ODR_OD15_Msk; // Apaga o LED
-			status = 0; // Atualiza o estado do LED para "apagado"
-		} else { // Se o LED está apagado
-			GPIOD->ODR |= GPIO_ODR_OD15_Msk; // Acende o LED
-			status = 1; // Atualiza o estado do LED para "aceso"
-		}
+	// Atualiza a cor do LED
+		    tmp = (estado_leds << 1) | ((estado_leds >> 7)&1);
+		    estado_leds = tmp;
+		    contador=+1
 	}
 }
 
@@ -93,6 +89,19 @@ void EXTI15_10_IRQHandler(void) {
 
 
 int main(void)	{
+
+
+// Declaração de variáveis que serão usadas na rotina de interrupção
+	typedef struct {
+	  char identificador[50]; // Nome do proprietário
+	  uint8_t estado_botao;    // Indica se há evento de pressionamento
+	  uint32_t contador;        // Número de acionamentos do botão
+	  enum COR {PRETO, VERMELHO, VERDE, AZUL, AMARELO, CIANO, MAGENTA, BRANCO} cor_led; // Cor atual do LED
+	  uint8_t estado_leds;      // Controle dos estados do LED RGB (0b00000001 inicial)
+	} Perifericos_t;
+
+
+
 
 // Ativa GPIOD15 (entrada azul do LED RGB) e GPIOC13 (botão de usuário)
 
@@ -127,7 +136,7 @@ int main(void)	{
 
 
 
-//Configuração de
+//Configuração do SYSCFG
 
 	// Ativa o SYSCFG
 	RCC->APB4ENR |= RCC_APB4ENR_SYSCFGEN_Msk;
@@ -138,7 +147,7 @@ int main(void)	{
 
 
 
-//Configuração de
+//Configuração do EXTI
 
 	// Ativa a borda de descida e desativa borda de subida
 	EXTI->RTSR1 &= ~EXTI_RTSR1_TR13_Msk;
@@ -171,7 +180,7 @@ int main(void)	{
 
 //Define de que forma tudo vai começar a rodar, acredito que nesse código será desligando todos os leds
 
-	// Inicializa PD15 apagado
+	// Inicializa PD12, PD14 e PD15 apagado
 	GPIOD->ODR &= ~GPIO_ODR_OD12_Msk;
 	GPIOD->ODR &= ~GPIO_ODR_OD14_Msk;
 	GPIOD->ODR &= ~GPIO_ODR_OD15_Msk;
