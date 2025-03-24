@@ -74,11 +74,15 @@ void AtualizarLEDs(void) {
                 LEDInterativo.cor_led = PRETO;
                 break;
             case 0b00000010: // Vermelho: R = 1, G = B = 0
-                GPIOD->ODR = (GPIOD->ODR & ~(GPIO_ODR_OD14_Msk | GPIO_ODR_OD15_Msk)) | GPIO_ODR_OD12_Msk;
+                GPIOD->ODR &= ~(GPIO_ODR_OD14_Msk); //Apaga LED verde
+		GPIOD->ODR &= ~(GPIO_ODR_OD15_Msk); //Apaga o LED azul
+		GPIOD->ODR |= GPIO_ODR_OD12_Msk;    //Acende o LED Vermelho
                 LEDInterativo.cor_led = VERMELHO;
                 break;
-            case 0b00000100:
-                GPIOD->ODR = (GPIOD->ODR & ~(GPIO_ODR_OD12_Msk | GPIO_ODR_OD15_Msk)) | GPIO_ODR_OD14_Msk;
+            case 0b00000100: // Verde: G = 1, R=B=0
+                GPIOD->ODR &= ~(GPIO_ODR_OD12_Msk); //Apaga o LED vermelho
+		GPIOD->ODR &= ~(GPIO_ODR_OD15_Msk); //Apaga o LED azul
+		GPIOD->ODR |= GPIO_ODR_OD14_Msk;    //Acende o LED verde
                 LEDInterativo.cor_led = VERDE;
                 break;
             case 0b00001000:
