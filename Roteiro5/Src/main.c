@@ -3,7 +3,7 @@
  * @file           : main.c
  * @author         : Artur Moreno e Aryel Pereira
  * @brief          : Main program body
- * @date	   : 2025/03/31
+ * @date		   : 2025/03/31
  ******************************************************************************
  * @attention
  *
