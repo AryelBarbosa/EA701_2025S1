@@ -1,0 +1,115 @@
+#include "stm32h7xx.h"
+#include "string.h"
+
+// Variáveis de comunicação
+extern volatile char RX4;
+extern volatile uint8_t flagRX4;
+extern volatile uint8_t TX3_ind;
+extern char TX3[80];
+
+// Variáveis de controle de motor e LED
+uint8_t pwm_motor = 0;
+uint8_t mask_R = 0x00, mask_G = 0x00, mask_B = 0x00;
+
+// Funções auxiliares
+uint8_t le_flagRX4() { return flagRX4; }
+void limpa_flagRX4() { flagRX4 = 0; }
+char le_RX4() { return RX4; }
+void reseta_TX3_ind() { TX3_ind = 0; }
+void carrega_TX3(char *buffer) { strcpy(TX3, buffer); }
+
+
+
+
+void USART3_Init(void) {
+    RCC->APB1LENR |= RCC_APB1LENR_USART3EN;
+    RCC->AHB4ENR |= RCC_AHB4ENR_GPIOCEN;
+
+    // PC10 (TX) e PC11 (RX) - USART3 em AF8
+    GPIOC->MODER &= ~((3 << (2 * 10)) | (3 << (2 * 11)));
+    GPIOC->MODER |= (2 << (2 * 10)) | (2 << (2 * 11));
+    GPIOC->AFR[1] &= ~((0xF << 8) | (0xF << 12));
+    GPIOC->AFR[1] |= (8 << 8) | (8 << 12); // AF8
+
+    USART3->CR1 = 0;
+    USART3->CR1 |= USART_CR1_TE | USART_CR1_RE | USART_CR1_RXNEIE_RXFNEIE;
+    USART3->CR1 |= USART_CR1_PCE | USART_CR1_PS; // Paridade ímpar
+    USART3->CR2 &= ~USART_CR2_STOP;
+    USART3->CR2 |= (USART_CR2_STOP_1 | USART_CR2_STOP_0); // 2 stop bits
+    USART3->BRR = SystemCoreClock / 57600;
+    USART3->CR1 |= USART_CR1_UE;
+
+    NVIC_SetPriority(USART3_IRQn, 10);
+    NVIC_EnableIRQ(USART3_IRQn);
+}
+
+
+
+
+void PWM_Init(void) {
+    // TIM3 - Motor (PC7)
+    RCC->APB1LENR |= RCC_APB1LENR_TIM3EN;
+    RCC->AHB4ENR |= RCC_AHB4ENR_GPIOCEN;
+    GPIOC->MODER &= ~(3 << (2 * 7));
+    GPIOC->MODER |= 2 << (2 * 7);
+    GPIOC->AFR[0] |= (2 << (4 * 7));
+
+    TIM3->PSC = 191;
+    TIM3->ARR = 99;
+    TIM3->CCR2 = 0;
+    TIM3->CCMR1 |= (6 << 12) | TIM_CCMR1_OC2PE;
+    TIM3->CCER |= TIM_CCER_CC2E;
+    TIM3->CR1 |= TIM_CR1_CEN;
+
+    // TIM4 - RGB (PD12, PD14, PD15)
+    RCC->APB1LENR |= RCC_APB1LENR_TIM4EN;
+    RCC->AHB4ENR |= RCC_AHB4ENR_GPIODEN;
+    GPIOD->MODER &= ~((3 << 24) | (3 << 28) | (3 << 30));
+    GPIOD->MODER |= (2 << 24) | (2 << 28) | (2 << 30);
+    GPIOD->AFR[1] |= (2 << 16) | (2 << 24) | (2 << 28); // AF2
+
+    TIM4->PSC = 191;
+    TIM4->ARR = 99;
+    TIM4->CCR1 = TIM4->CCR3 = TIM4->CCR4 = 0;
+    TIM4->CCMR1 |= (6 << 4) | TIM_CCMR1_OC1PE;
+    TIM4->CCMR2 |= (6 << 4) | TIM_CCMR2_OC3PE;
+    TIM4->CCMR2 |= (6 << 12) | TIM_CCMR2_OC4PE;
+    TIM4->CCER |= TIM_CCER_CC1E | TIM_CCER_CC3E | TIM_CCER_CC4E;
+    TIM4->CR1 |= TIM_CR1_CEN;
+}
+
+
+
+
+void processar_comando(char c) {
+    switch (c) {
+        case '0' ... '9': pwm_motor = (c - '0') * 10; break;
+        case 'r': case 'R': mask_R = 0xFF; mask_G = mask_B = 0x00; break;
+        case 'g': case 'G': mask_G = 0xFF; mask_R = mask_B = 0x00; break;
+        case 'b': case 'B': mask_B = 0xFF; mask_R = mask_G = 0x00; break;
+        case 'x': case 'X': pwm_motor = 0; mask_R = mask_G = mask_B = 0x00; break;
+    }
+
+    TIM3->CCR2 = pwm_motor;
+    TIM4->CCR1 = pwm_motor & mask_R;
+    TIM4->CCR3 = pwm_motor & mask_G;
+    TIM4->CCR4 = pwm_motor & mask_B;
+}
+
+
+
+
+int main(void) {
+    HAL_Init();
+    SystemInit();
+
+    USART3_Init();
+    PWM_Init();
+
+    while (1) {
+        if (le_flagRX4()) {
+            limpa_flagRX4();
+            processar_comando(le_RX4());
+        }
+    }
+}
