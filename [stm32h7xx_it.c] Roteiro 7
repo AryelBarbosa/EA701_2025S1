@@ -1,1 +1,148 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file    stm32h7xx_it.c
+  * @brief   Interrupt Service Routines.
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "stm32h7xx_it.h"
+#include "string.h" // Inclusão para uso de strcpy
+
+/* USER CODE BEGIN PV */
+// Variáveis globais para comunicação com a interface CLI
+uint8_t flagRX4 = 0;           // Flag para sinalizar chegada de novo caractere
+uint8_t TX3_ind = 0;           // Índice atual de transmissão
+char RX4 = '\0';               // Último caractere recebido
+char TX3[80];                  // Buffer de transmissão
+/* USER CODE END PV */
+
+/* USER CODE BEGIN PFP */
+// Funções auxiliares acessadas do main.c
+uint8_t le_flagRX4() {
+	return flagRX4;
+}
+
+void limpa_flagRX4() {
+	flagRX4 = 0;
+}
+
+char le_RX4() {
+	return RX4;
+}
+
+void reseta_TX3_ind() {
+	TX3_ind = 0;
+}
+
+void carrega_TX3(char *buffer) {
+	strcpy(TX3, buffer); // Copia a mensagem para o buffer de transmissão
+}
+/* USER CODE END PFP */
+
+/******************************************************************************/
+/*           Cortex Processor Interruption and Exception Handlers            */
+/******************************************************************************/
+
+/**
+  * @brief Trata interrupção de NMI (Non-Maskable Interrupt).
+  */
+void NMI_Handler(void)
+{
+  while (1) {} // Entra em loop infinito em caso de falha crítica
+}
+
+/**
+  * @brief Trata interrupção de Hard Fault (erro grave no sistema).
+  */
+void HardFault_Handler(void)
+{
+  while (1) {}
+}
+
+/**
+  * @brief Trata falhas de gerenciamento de memória.
+  */
+void MemManage_Handler(void)
+{
+  while (1) {}
+}
+
+/**
+  * @brief Trata falhas de barramento (bus fault).
+  */
+void BusFault_Handler(void)
+{
+  while (1) {}
+}
+
+/**
+  * @brief Trata uso inválido de instrução ou estado ilegal.
+  */
+void UsageFault_Handler(void)
+{
+  while (1) {}
+}
+
+/**
+  * @brief Interrupção de chamada de sistema via instrução SVC.
+  */
+void SVC_Handler(void) {}
+
+/**
+  * @brief Interrupção do monitor de debug.
+  */
+void DebugMon_Handler(void) {}
+
+/**
+  * @brief Trata PendSV (pendente para serviço do sistema).
+  */
+void PendSV_Handler(void) {}
+
+/**
+  * @brief Trata o SysTick - temporizador do sistema (usado por HAL).
+  */
+void SysTick_Handler(void)
+{
+  HAL_IncTick(); // Atualiza o contador global de ticks do HAL
+}
+
+/******************************************************************************/
+/*          Interrupção da USART3 - Comunicação Serial via CLI               */
+/******************************************************************************/
+
+/**
+  * @brief Interrupção da USART3: RX e TX via CLI
+  */
+void USART3_IRQHandler(void) {
+    // --- Recepção de caractere ---
+    if ((USART3->ISR & USART_ISR_RXNE_RXFNE)) {
+        RX4 = USART3->RDR; // Lê o caractere recebido
+
+        // Ecoa o caractere de volta ao terminal
+        while (!(USART3->ISR & USART_ISR_TXE_TXFNF)) {}
+        USART3->TDR = RX4;
+
+        // Se ENTER for pressionado (0x0D), envia um LF (0x0A)
+        if (RX4 == 0x0D) {
+            while (!(USART3->ISR & USART_ISR_TXE_TXFNF)) {}
+            USART3->TDR = 0x0A;
+        }
+
+        flagRX4 = 1; // Sinaliza que há um caractere novo
+    }
+
+    // --- Transmissão de string armazenada em TX3 ---
+    else if (USART3->ISR & USART_ISR_TXE_TXFNF) {
+        USART3->TDR = TX3[TX3_ind++]; // Envia próximo caractere
+
+        // Se chegou ao fim da string, desabilita a interrupção de TX
+        if (TX3[TX3_ind] == '\0') {
+            USART3->CR1 &= ~USART_CR1_TXEIE_TXFNFIE_Msk;
+        }
+    }
+}
 
